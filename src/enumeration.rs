@@ -57,6 +57,8 @@ pub struct DeviceInfo {
     pub(crate) subclass: u8,
     pub(crate) protocol: u8,
 
+    pub(crate) max_packet_size: u8,
+
     pub(crate) speed: Option<Speed>,
 
     pub(crate) manufacturer_string: Option<String>,
@@ -185,6 +187,12 @@ impl DeviceInfo {
     #[doc(alias = "bDeviceProtocol")]
     pub fn protocol(&self) -> u8 {
         self.protocol
+    }
+
+    /// Maximum packet size for endpoint zero.
+    #[doc(alias = "bMaxPacketSize0")]
+    pub fn max_packet_size(&self) -> u8 {
+        self.max_packet_size
     }
 
     /// Connection speed
