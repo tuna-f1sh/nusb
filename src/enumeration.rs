@@ -25,8 +25,14 @@ pub struct DeviceInfo {
     #[cfg(target_os = "linux")]
     pub(crate) path: SysfsPath,
 
+    #[cfg(target_os = "linux")]
+    pub(crate) busnum: u8,
+
     #[cfg(target_os = "windows")]
     pub(crate) instance_id: OsString,
+
+    #[cfg(target_os = "windows")]
+    pub(crate) location_paths: Vec<OsString>,
 
     #[cfg(target_os = "windows")]
     pub(crate) parent_instance_id: OsString,
@@ -46,9 +52,9 @@ pub struct DeviceInfo {
     #[cfg(target_os = "macos")]
     pub(crate) location_id: u32,
 
-    pub(crate) bus_number: u8,
+    pub(crate) bus_id: String,
     pub(crate) device_address: u8,
-    pub(crate) port_chain: Option<Vec<u8>>,
+    pub(crate) port_chain: Vec<u8>,
 
     pub(crate) vendor_id: u16,
     pub(crate) product_id: u16,
@@ -58,7 +64,7 @@ pub struct DeviceInfo {
     pub(crate) subclass: u8,
     pub(crate) protocol: u8,
 
-    pub(crate) max_packet_size: u8,
+    pub(crate) max_packet_size_0: u8,
 
     pub(crate) speed: Option<Speed>,
 
@@ -80,7 +86,7 @@ impl DeviceInfo {
         #[cfg(target_os = "linux")]
         {
             DeviceId(crate::platform::DeviceId {
-                bus: self.bus_number,
+                bus: self.busnum,
                 addr: self.device_address,
             })
         }
@@ -105,10 +111,24 @@ impl DeviceInfo {
         &self.path.0
     }
 
+    /// *(Linux-only)* Bus number.
+    ///
+    /// On Linux, the `bus_id` is an integer and this provides the value as `u8`.
+    #[cfg(target_os = "linux")]
+    pub fn busnum(&self) -> u8 {
+        self.busnum
+    }
+
     /// *(Windows-only)* Instance ID path of this device
     #[cfg(target_os = "windows")]
     pub fn instance_id(&self) -> &OsStr {
         &self.instance_id
+    }
+
+    /// *(Windows-only)* Location paths property
+    #[cfg(target_os = "windows")]
+    pub fn location_paths(&self) -> &[OsString] {
+        &self.location_paths
     }
 
     /// *(Windows-only)* Instance ID path of the parent hub
@@ -123,17 +143,15 @@ impl DeviceInfo {
         self.port_number
     }
 
-    /// Path of port numbers identifying the physical port where the device is
-    /// connected.
+    /// Path of port numbers identifying the port where the device is connected.
     ///
-    /// The first value is the bus number, and subsequent values represent the
-    /// port used on each hub on the path to this device. The path is expected
-    /// to remain stable across device insertions or reboots.
+    /// Together with the bus ID, it identifies a physical port. The path is
+    ///  expected to remain stable across device insertions or reboots.
     ///
     /// Since USB SuperSpeed is a separate topology from USB 2.0 speeds, a
     /// physical port may be identified differently depending on speed.
-    pub fn port_chain(&self) -> Option<&[u8]> {
-        self.port_chain.as_deref()
+    pub fn port_chain(&self) -> &[u8] {
+        &self.port_chain
     }
 
     /// *(Windows-only)* Driver associated with the device as a whole
@@ -154,9 +172,9 @@ impl DeviceInfo {
         self.registry_id
     }
 
-    /// Number identifying the bus / host controller where the device is connected.
-    pub fn bus_number(&self) -> u8 {
-        self.bus_number
+    /// Identifier for the bus / host controller where the device is connected.
+    pub fn bus_id(&self) -> &str {
+        &self.bus_id
     }
 
     /// Number identifying the device within the bus.
@@ -205,8 +223,8 @@ impl DeviceInfo {
 
     /// Maximum packet size for endpoint zero.
     #[doc(alias = "bMaxPacketSize0")]
-    pub fn max_packet_size(&self) -> u8 {
-        self.max_packet_size
+    pub fn max_packet_size_0(&self) -> u8 {
+        self.max_packet_size_0
     }
 
     /// Connection speed
@@ -275,7 +293,7 @@ impl std::fmt::Debug for DeviceInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut s = f.debug_struct("DeviceInfo");
 
-        s.field("bus_number", &self.bus_number)
+        s.field("bus_id", &self.bus_id)
             .field("device_address", &self.device_address)
             .field("port_chain", &format_args!("{:?}", self.port_chain))
             .field("vendor_id", &format_args!("0x{:04X}", self.vendor_id))
@@ -287,6 +305,7 @@ impl std::fmt::Debug for DeviceInfo {
             .field("class", &format_args!("0x{:02X}", self.class))
             .field("subclass", &format_args!("0x{:02X}", self.subclass))
             .field("protocol", &format_args!("0x{:02X}", self.protocol))
+            .field("max_packet_size_0", &self.max_packet_size_0)
             .field("speed", &self.speed)
             .field("manufacturer_string", &self.manufacturer_string)
             .field("product_string", &self.product_string)
@@ -295,12 +314,14 @@ impl std::fmt::Debug for DeviceInfo {
         #[cfg(target_os = "linux")]
         {
             s.field("sysfs_path", &self.path);
+            s.field("busnum", &self.busnum);
         }
 
         #[cfg(target_os = "windows")]
         {
             s.field("instance_id", &self.instance_id);
             s.field("parent_instance_id", &self.parent_instance_id);
+            s.field("location_paths", &self.location_paths);
             s.field("port_number", &self.port_number);
             s.field("driver", &self.driver);
         }

@@ -55,16 +55,16 @@ pub(crate) fn probe_device(device: IoService) -> Option<DeviceInfo> {
     Some(DeviceInfo {
         registry_id,
         location_id,
-        bus_number: (location_id >> 24) as u8,
+        bus_id: format!("{:02x}", (location_id >> 24) as u8),
         device_address: get_integer_property(&device, "USB Address")? as u8,
-        port_chain: Some(parse_location_id(location_id)),
+        port_chain: parse_location_id(location_id),
         vendor_id: get_integer_property(&device, "idVendor")? as u16,
         product_id: get_integer_property(&device, "idProduct")? as u16,
         device_version: get_integer_property(&device, "bcdDevice")? as u16,
         class: get_integer_property(&device, "bDeviceClass")? as u8,
         subclass: get_integer_property(&device, "bDeviceSubClass")? as u8,
         protocol: get_integer_property(&device, "bDeviceProtocol")? as u8,
-        max_packet_size: get_integer_property(&device, "bMaxPacketSize0")? as u8,
+        max_packet_size_0: get_integer_property(&device, "bMaxPacketSize0")? as u8,
         speed: get_integer_property(&device, "Device Speed").and_then(map_speed),
         manufacturer_string: get_string_property(&device, "USB Vendor Name"),
         product_string: get_string_property(&device, "USB Product Name"),
@@ -166,8 +166,7 @@ fn map_speed(speed: i64) -> Option<Speed> {
 }
 
 fn parse_location_id(id: u32) -> Vec<u8> {
-    let bus_num = id >> 24;
-    let mut chain = vec![bus_num as u8];
+    let mut chain = vec![];
     let mut shift = id << 8;
 
     while shift != 0 {
@@ -181,9 +180,9 @@ fn parse_location_id(id: u32) -> Vec<u8> {
 
 #[test]
 fn test_parse_location_id() {
-    assert_eq!(parse_location_id(0x01234567), vec![1, 2, 3, 4, 5, 6, 7]);
-    assert_eq!(parse_location_id(0xff875000), vec![255, 8, 7, 5]);
-    assert_eq!(parse_location_id(0x08400000), vec![8, 4]);
-    assert_eq!(parse_location_id(0x02040100), vec![2, 0, 4, 0, 1]);
-    assert_eq!(parse_location_id(0), vec![0]);
+    assert_eq!(parse_location_id(0x01234567), vec![2, 3, 4, 5, 6, 7]);
+    assert_eq!(parse_location_id(0xff875000), vec![8, 7, 5]);
+    assert_eq!(parse_location_id(0x08400000), vec![4]);
+    assert_eq!(parse_location_id(0x02040100), vec![0, 4, 0, 1]);
+    assert_eq!(parse_location_id(0), vec![]);
 }

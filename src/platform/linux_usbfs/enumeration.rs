@@ -1,6 +1,5 @@
 use std::fs;
 use std::io;
-use std::iter;
 use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -123,20 +122,25 @@ pub fn list_devices() -> Result<impl Iterator<Item = DeviceInfo>, Error> {
     }))
 }
 
-pub fn probe_device(path: SysfsPath) -> Result<DeviceInfo, Error> {
-    debug!("probe device {path:?}");
+pub fn probe_device(path: SysfsPath) -> Result<DeviceInfo, SysfsError> {
+    debug!("Probing device {:?}", path.0);
 
-    let bus_number = path.read_attr("busnum")?;
+    let busnum = path.read_attr("busnum")?;
     let device_address = path.read_attr("devnum")?;
 
-    let port_chain = path.read_attr::<String>("devpath").ok().and_then(|p| {
-        iter::once(Some(bus_number))
-            .chain(p.split('.').map(|v| v.parse::<u8>().ok()))
-            .collect::<Option<Vec<u8>>>()
-    });
+    let port_chain = path
+        .read_attr::<String>("devpath")
+        .ok()
+        .and_then(|p| {
+            p.split('.')
+                .map(|v| v.parse::<u8>().ok())
+                .collect::<Option<Vec<u8>>>()
+        })
+        .unwrap_or_default();
 
     Ok(DeviceInfo {
-        bus_number,
+        busnum,
+        bus_id: format!("{busnum:03}"),
         device_address,
         port_chain,
         vendor_id: path.read_attr_hex("idVendor")?,
@@ -145,7 +149,7 @@ pub fn probe_device(path: SysfsPath) -> Result<DeviceInfo, Error> {
         class: path.read_attr_hex("bDeviceClass")?,
         subclass: path.read_attr_hex("bDeviceSubClass")?,
         protocol: path.read_attr_hex("bDeviceProtocol")?,
-        max_packet_size: path.read_attr("bMaxPacketSize0")?,
+        max_packet_size_0: path.read_attr("bMaxPacketSize0")?,
         speed: path
             .read_attr::<String>("speed")
             .ok()
