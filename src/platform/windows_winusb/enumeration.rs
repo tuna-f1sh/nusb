@@ -10,7 +10,7 @@ use windows_sys::Win32::Devices::{
         DEVPKEY_Device_HardwareIds, DEVPKEY_Device_InstanceId, DEVPKEY_Device_LocationPaths,
         DEVPKEY_Device_Parent, DEVPKEY_Device_Service,
     },
-    Usb::GUID_DEVINTERFACE_USB_DEVICE,
+    Usb::{GUID_DEVINTERFACE_USB_DEVICE, GUID_DEVINTERFACE_USB_HOST_CONTROLLER},
 };
 
 use crate::{
@@ -29,6 +29,16 @@ use super::{
 
 pub fn list_devices() -> Result<impl Iterator<Item = DeviceInfo>, Error> {
     let devs: Vec<DeviceInfo> = cfgmgr32::list_interfaces(GUID_DEVINTERFACE_USB_DEVICE, None)
+        .iter()
+        .flat_map(|i| get_device_interface_property::<WCString>(i, DEVPKEY_Device_InstanceId))
+        .flat_map(|d| DevInst::from_instance_id(&d))
+        .flat_map(probe_device)
+        .collect();
+    Ok(devs.into_iter())
+}
+
+pub fn list_root_hubs() -> Result<impl Iterator<Item = DeviceInfo>, Error> {
+    let devs: Vec<DeviceInfo> = cfgmgr32::list_interfaces(GUID_DEVINTERFACE_USB_HOST_CONTROLLER, None)
         .iter()
         .flat_map(|i| get_device_interface_property::<WCString>(i, DEVPKEY_Device_InstanceId))
         .flat_map(|d| DevInst::from_instance_id(&d))
