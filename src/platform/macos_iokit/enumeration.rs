@@ -17,7 +17,10 @@ use log::debug;
 use crate::{DeviceInfo, Error, InterfaceInfo, Speed};
 
 use super::iokit::{IoService, IoServiceIterator};
-pub const kAppleUSBXHCI: *const ::std::os::raw::c_char =
+#[allow(non_upper_case_globals)]
+/// IOKit class name for PCI USB high-speed controllers
+// AppleUSBEHI (full-speed) and others?
+const kAppleUSBXHCI: *const ::std::os::raw::c_char =
     b"AppleUSBXHCI\x00" as *const [u8; 13usize] as *const ::std::os::raw::c_char;
 
 fn usb_service_iter(service: *const ::std::os::raw::c_char) -> Result<IoServiceIterator, Error> {
@@ -126,11 +129,11 @@ pub(crate) fn probe_root_hub(device: IoService) -> Option<DeviceInfo> {
         class: 0x09,
         subclass: 0x00,
         protocol: 0x01, // TODO depends on speed
-        max_packet_size_0: 0x00,
+        max_packet_size_0: 64,
         speed: None,
         manufacturer_string: get_string_property(&device, "IOProviderClass"),
         product_string: get_string_property(&device, "IOClass"),
-        serial_number: get_string_property(&device, "USB Serial Number"),
+        serial_number: None,
         interfaces: Vec::new()
     })
 }
