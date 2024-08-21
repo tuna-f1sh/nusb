@@ -101,19 +101,19 @@ pub(crate) fn probe_root_hub(device: IoService) -> Option<DeviceInfo> {
     let location_id = get_integer_property(&device, "locationID")? as u32;
     // "IOPCIPrimaryMatch" = "0x15e98086 0x15ec8086 0x15f08086 0x0b278086"
     // extracted matching from `system_profiler SPUSBDataType -json`
-    // try to get but not always present so default to Apple's
     let (vid, pid) = if let Some(pci) = get_string_property(&device, "IOPCIPrimaryMatch") {
         let parts = pci.split_whitespace().collect::<Vec<_>>();
         match parts.get(2) {
             Some(s) => {
-                let vid = u16::from_str_radix(&s[0..4], 16).unwrap_or(0x15f0);
-                let pid = u16::from_str_radix(&s[4..], 16).unwrap_or(0x8086);
+                let pid = u16::from_str_radix(&s[2..6], 16).unwrap_or(0x0000);
+                let vid = u16::from_str_radix(&s[6..10], 16).unwrap_or(0x0000);
                 (vid, pid)
             }
-            None => (0x15f0, 0x8086)
+            None => (0x0000, 0x0000)
         }
     } else {
-        (0x15f0, 0x8086)
+        debug!("Root hub does not have IOPCIPrimaryMatch property");
+        (0x0000, 0x0000)
     };
 
     // Can run `ioreg -rc AppleUSBXHCI -d 1` to see all properties
@@ -125,7 +125,7 @@ pub(crate) fn probe_root_hub(device: IoService) -> Option<DeviceInfo> {
         port_chain: parse_location_id(location_id),
         vendor_id: vid,
         product_id: pid,
-        device_version: 0,
+        device_version: 0, // TODO parse from a key value?
         class: 0x09,
         subclass: 0x00,
         protocol: 0x01, // TODO depends on speed
