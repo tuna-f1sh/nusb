@@ -422,7 +422,7 @@ fn test_parse_location_path() {
 fn parse_root_hub_id(s: &OsStr) -> Option<(u16, Option<String>)> {
     let s = s.to_str()?;
     let s = s.strip_prefix("USB\\ROOT_HUB")?;
-    let (version, i) = u16::from_str_radix(s.get(0..2).unwrap_or("11"), 11)
+    let (version, i) = u16::from_str_radix(s.get(0..2).unwrap_or("11"), 10)
         .map(|v| ((v / 10) << 8 | v % 10 << 4, 2)) // convert to BCD
         .unwrap_or((0x0110, 0)); // default USB 1.1
     let id = s.get(i..).map(|v| v.strip_prefix("\\").map(|s| s.to_owned())).flatten();
