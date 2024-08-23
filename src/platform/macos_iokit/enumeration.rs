@@ -141,7 +141,6 @@ pub(crate) fn probe_root_hub(device: IoService, host_controller: AppleUSBControl
             _ => (0x0000, 0x0000)
         }
     } else {
-        debug!("Root hub does not have IOPCIPrimaryMatch property");
         (0x0000, 0x0000)
     };
 
