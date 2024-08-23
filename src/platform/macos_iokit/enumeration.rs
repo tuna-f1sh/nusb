@@ -24,15 +24,15 @@ const kAppleUSBXHCI: *const ::std::os::raw::c_char =
 /// IOKit class name for PCI USB EHCI high-speed controllers (USB 2.0)
 #[allow(non_upper_case_globals)]
 const kAppleUSBEHCI: *const ::std::os::raw::c_char =
-    b"AppleUSBXHCI\x00" as *const [u8; 13usize] as *const ::std::os::raw::c_char;
+    b"AppleUSBEHCI\x00" as *const [u8; 13usize] as *const ::std::os::raw::c_char;
 /// IOKit class name for PCI USB OHCI full-speed controllers (USB 1.1)
 #[allow(non_upper_case_globals)]
 const kAppleUSBOHCI: *const ::std::os::raw::c_char =
-    b"AppleUSBXHCI\x00" as *const [u8; 13usize] as *const ::std::os::raw::c_char;
+    b"AppleUSBOHCI\x00" as *const [u8; 13usize] as *const ::std::os::raw::c_char;
 /// IOKit class name for virtual internal controller (T2 chip)
 #[allow(non_upper_case_globals)]
 const kAppleUSBVHCI: *const ::std::os::raw::c_char =
-    b"AppleUSBXHCI\x00" as *const [u8; 13usize] as *const ::std::os::raw::c_char;
+    b"AppleUSBVHCI\x00" as *const [u8; 13usize] as *const ::std::os::raw::c_char;
 
 pub(crate) enum AppleUSBController {
     /// xHCI controller (USB 3.0+)
