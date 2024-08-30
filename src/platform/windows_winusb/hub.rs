@@ -53,6 +53,7 @@ impl HubHandle {
             debug!("Failed to find hub interface");
             return None;
         };
+        debug!("Opening hub: {path}");
 
         match create_file(path) {
             Ok(f) => Some(HubHandle(f)),
@@ -210,6 +211,22 @@ impl HubPort {
             .parent()
             .ok_or_else(|| Error::new(ErrorKind::Other, "failed to find parent hub"))?;
         let hub_handle = HubHandle::by_devinst(parent_hub)
+            .ok_or_else(|| Error::new(ErrorKind::Other, "failed to open parent hub"))?;
+        let Some(port_number) = devinst.get_property::<u32>(DEVPKEY_Device_Address) else {
+            return Err(Error::new(
+                ErrorKind::NotConnected,
+                "Could not find hub port number",
+            ));
+        };
+
+        Ok(HubPort {
+            hub_handle,
+            port_number,
+        })
+    }
+
+    pub fn by_hub_devinst(devinst: DevInst) -> Result<HubPort, Error> {
+        let hub_handle = HubHandle::by_devinst(devinst)
             .ok_or_else(|| Error::new(ErrorKind::Other, "failed to open parent hub"))?;
         let Some(port_number) = devinst.get_property::<u32>(DEVPKEY_Device_Address) else {
             return Err(Error::new(
