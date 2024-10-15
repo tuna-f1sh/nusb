@@ -467,6 +467,89 @@ impl UsbControllerType {
     }
 }
 
+#[derive(Clone)]
+pub struct PciControllerInfo {
+    pub(crate) name: String,
+    pub(crate) class_name: String,
+    pub(crate) io_name: String,
+    pub(crate) registry_id: u64,
+    pub(crate) vendor_id: u16,
+    pub(crate) device_id: u16,
+    pub(crate) revision_id: u16,
+    pub(crate) class_code: u32,
+    pub(crate) subsystem_vendor_id: Option<u16>,
+    pub(crate) subsystem_id: Option<u16>,
+}
+
+impl PciControllerInfo {
+    /// Name of the PCI controller
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Class name of the PCI controller
+    pub fn class_name(&self) -> &str {
+        &self.class_name
+    }
+
+    /// IO name of the PCI controller
+    pub fn io_name(&self) -> &str {
+        &self.io_name
+    }
+
+    /// Registry ID of the PCI controller
+    pub fn registry_id(&self) -> u64 {
+        self.registry_id
+    }
+
+    /// Vendor ID of the PCI controller
+    pub fn vendor_id(&self) -> u16 {
+        self.vendor_id
+    }
+
+    /// Device ID of the PCI controller
+    pub fn device_id(&self) -> u16 {
+        self.device_id
+    }
+
+    /// Revision ID of the PCI controller
+    pub fn revision_id(&self) -> u16 {
+        self.revision_id
+    }
+
+    /// Class code of the PCI controller
+    pub fn class_code(&self) -> u32 {
+        self.class_code
+    }
+
+    /// Subsystem vendor ID of the PCI controller
+    pub fn subsystem_vendor_id(&self) -> Option<u16> {
+        self.subsystem_vendor_id
+    }
+
+    /// Subsystem ID of the PCI controller
+    pub fn subsystem_id(&self) -> Option<u16> {
+        self.subsystem_id
+    }
+}
+
+impl std::fmt::Debug for PciControllerInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PciControllerInfo")
+            .field("name", &self.name)
+            .field("class_name", &self.class_name)
+            .field("io_name", &self.io_name)
+            .field("registry_id", &format!("{:08x}", self.registry_id))
+            .field("vendor_id", &format!("{:04x}", self.vendor_id))
+            .field("device_id", &format!("{:04x}", self.device_id))
+            .field("revision_id", &format!("{:04x}", self.revision_id))
+            .field("class_code", &format!("{:08x}", self.class_code))
+            .field("subsystem_vendor_id", &self.subsystem_vendor_id)
+            .field("subsystem_id", &self.subsystem_id)
+            .finish()
+    }
+}
+
 /// Information about a system USB bus.
 ///
 /// Platform-specific fields:
@@ -516,6 +599,9 @@ pub struct BusInfo {
 
     #[cfg(target_os = "macos")]
     pub(crate) name: Option<String>,
+
+    #[cfg(target_os = "macos")]
+    pub(crate) pci_controller_info: Option<PciControllerInfo>,
 
     pub(crate) driver: Option<String>,
 
@@ -653,6 +739,11 @@ impl BusInfo {
             self.name.as_deref()
         }
     }
+
+    #[cfg(target_os = "macos")]
+    pub fn pci_controller_info(&self) -> Option<&PciControllerInfo> {
+        self.pci_controller_info.as_ref()
+    }
 }
 
 impl std::fmt::Debug for BusInfo {
@@ -682,6 +773,7 @@ impl std::fmt::Debug for BusInfo {
             );
             s.field("class_name", &self.class_name);
             s.field("provider_class_name", &self.provider_class_name);
+            s.field("pci_controller_pci", &self.pci_controller_info);
         }
 
         s.field("bus_id", &self.bus_id)

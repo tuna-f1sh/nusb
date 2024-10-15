@@ -15,7 +15,7 @@ use io_kit_sys::{
 };
 use log::debug;
 
-use crate::{BusInfo, DeviceInfo, Error, InterfaceInfo, Speed, UsbControllerType};
+use crate::{BusInfo, DeviceInfo, Error, InterfaceInfo, Speed, UsbControllerType, PciControllerInfo};
 
 use super::iokit::{IoService, IoServiceIterator};
 /// IOKit class name for PCI USB XHCI high-speed controllers (USB 3.0+)
@@ -34,6 +34,9 @@ const kAppleUSBOHCI: *const ::std::os::raw::c_char =
 #[allow(non_upper_case_globals)]
 const kAppleUSBVHCI: *const ::std::os::raw::c_char =
     b"AppleUSBVHCI\x00" as *const [u8; 13usize] as *const ::std::os::raw::c_char;
+#[allow(non_upper_case_globals)]
+const kIOPCIDevice: *const ::std::os::raw::c_char =
+    b"IOPCIDevice\x00" as *const [u8; 12usize] as *const ::std::os::raw::c_char;
 
 fn usb_service_iter() -> Result<IoServiceIterator, Error> {
     unsafe {
@@ -76,8 +79,38 @@ fn usb_controller_service_iter(
     }
 }
 
+fn usb_pci_service_iter() -> Result<IoServiceIterator, Error> {
+    unsafe {
+        let dictionary = IOServiceMatching(kIOPCIDevice);
+        if dictionary.is_null() {
+            return Err(Error::new(ErrorKind::Other, "IOServiceMatching failed"));
+        }
+
+        let mut iterator = 0;
+        let r = IOServiceGetMatchingServices(kIOMasterPortDefault, dictionary, &mut iterator);
+        if r != kIOReturnSuccess {
+            return Err(Error::from_raw_os_error(r));
+        }
+
+        Ok(IoServiceIterator::new(iterator))
+    }
+}
+
 pub fn list_devices() -> Result<impl Iterator<Item = DeviceInfo>, Error> {
     Ok(usb_service_iter()?.filter_map(probe_device))
+}
+
+use std::sync::OnceLock;
+
+static USB_CONTROLLERS: OnceLock<Result<Vec<PciControllerInfo>, Error>> = OnceLock::new();
+
+pub fn list_controllers() -> Result<impl Iterator<Item = PciControllerInfo>, Error> {
+    Ok(usb_pci_service_iter()?.filter_map(probe_controller))
+}
+
+pub fn get_controller(name: &str) -> Option<PciControllerInfo> {
+    let controllers = USB_CONTROLLERS.get_or_init(|| list_controllers().and_then(|iter| Ok(iter.collect()))).as_ref().ok()?;
+    controllers.iter().find(|c| c.name == name).cloned()
 }
 
 pub fn list_buses() -> Result<impl Iterator<Item = BusInfo>, Error> {
@@ -143,6 +176,37 @@ pub(crate) fn probe_device(device: IoService) -> Option<DeviceInfo> {
     })
 }
 
+pub(crate) fn probe_controller(device: IoService) -> Option<PciControllerInfo> {
+    let registry_id = get_registry_id(&device)?;
+    log::debug!("Probing controller {registry_id:08x}");
+
+    // name is a CFData of ASCII characters
+    let name = get_ascii_array_property(&device, "name")?;
+
+    let class_name = get_string_property(&device, "IOClass")?;
+    let io_name = get_string_property(&device, "IOName")?;
+
+    let vendor_id = get_byte_array_property(&device, "vendor-id").map(|v| u16::from_le_bytes([v[0], v[1]]))?;
+    let device_id = get_byte_array_property(&device, "device-id").map(|v| u16::from_le_bytes([v[0], v[1]]))?;
+    let revision_id = get_byte_array_property(&device, "revision-id").map(|v| u16::from_le_bytes([v[0], v[1]]))?;
+    let class_code = get_byte_array_property(&device, "class-code").map(|v| u32::from_le_bytes([v[0], v[1], v[2], v[3]]))?;
+    let subsystem_vendor_id = get_byte_array_property(&device, "subsystem-vendor-id").map(|v| u16::from_le_bytes([v[0], v[1]]));
+    let subsystem_id = get_byte_array_property(&device, "subsystem-id").map(|v| u16::from_le_bytes([v[0], v[1]]));
+
+    Some(PciControllerInfo {
+        name,
+        class_name,
+        io_name,
+        registry_id,
+        vendor_id,
+        device_id,
+        revision_id,
+        class_code,
+        subsystem_vendor_id,
+        subsystem_id,
+    })
+}
+
 pub(crate) fn probe_bus(device: IoService, host_controller: &UsbControllerType) -> Option<BusInfo> {
     let registry_id = get_registry_id(&device)?;
     log::debug!("Probing bus {registry_id:08x}");
@@ -159,8 +223,9 @@ pub(crate) fn probe_bus(device: IoService, host_controller: &UsbControllerType) 
         driver: get_string_property(&device, "CFBundleIdentifier"),
         provider_class_name: get_string_property(&device, "IOProviderClass")?,
         class_name: get_string_property(&device, "IOClass")?,
-        name,
         controller_type: Some(host_controller.to_owned()),
+        pci_controller_info: name.as_ref().and_then(|n| get_controller(n)),
+        name,
     })
 }
 
@@ -216,6 +281,11 @@ fn get_integer_property(device: &IoService, property: &'static str) -> Option<i6
         debug!("failed to convert {property} value {n:?} to i64");
         None
     })
+}
+
+fn get_byte_array_property(device: &IoService, property: &'static str) -> Option<Vec<u8>> {
+    let d = get_property::<CFData>(device, property)?;
+    Some(d.bytes().to_vec())
 }
 
 fn get_ascii_array_property(device: &IoService, property: &'static str) -> Option<String> {
