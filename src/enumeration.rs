@@ -467,8 +467,8 @@ impl UsbControllerType {
     }
 }
 
-#[derive(Clone)]
-pub struct PciControllerInfo {
+/// Information about a host controller.
+pub struct HostControllerInfo {
     pub(crate) name: String,
     pub(crate) class_name: String,
     pub(crate) io_name: String,
@@ -481,7 +481,7 @@ pub struct PciControllerInfo {
     pub(crate) subsystem_id: Option<u16>,
 }
 
-impl PciControllerInfo {
+impl HostControllerInfo {
     /// Name of the PCI controller
     pub fn name(&self) -> &str {
         &self.name
@@ -533,7 +533,7 @@ impl PciControllerInfo {
     }
 }
 
-impl std::fmt::Debug for PciControllerInfo {
+impl std::fmt::Debug for HostControllerInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PciControllerInfo")
             .field("name", &self.name)
@@ -601,7 +601,7 @@ pub struct BusInfo {
     pub(crate) name: Option<String>,
 
     #[cfg(target_os = "macos")]
-    pub(crate) pci_controller_info: Option<PciControllerInfo>,
+    pub(crate) host_controller_info: Option<HostControllerInfo>,
 
     pub(crate) driver: Option<String>,
 
@@ -693,6 +693,12 @@ impl BusInfo {
         self.name.as_deref()
     }
 
+    /// *(macOS-only)* Information about the host controller
+    #[cfg(target_os = "macos")]
+    pub fn host_controller_info(&self) -> Option<&HostControllerInfo> {
+        self.host_controller_info.as_ref()
+    }
+
     /// Driver associated with the bus
     pub fn driver(&self) -> Option<&str> {
         self.driver.as_deref()
@@ -739,11 +745,6 @@ impl BusInfo {
             self.name.as_deref()
         }
     }
-
-    #[cfg(target_os = "macos")]
-    pub fn pci_controller_info(&self) -> Option<&PciControllerInfo> {
-        self.pci_controller_info.as_ref()
-    }
 }
 
 impl std::fmt::Debug for BusInfo {
@@ -773,7 +774,7 @@ impl std::fmt::Debug for BusInfo {
             );
             s.field("class_name", &self.class_name);
             s.field("provider_class_name", &self.provider_class_name);
-            s.field("pci_controller_pci", &self.pci_controller_info);
+            s.field("pci_controller_pci", &self.host_controller_info);
         }
 
         s.field("bus_id", &self.bus_id)

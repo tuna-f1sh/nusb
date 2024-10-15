@@ -120,7 +120,7 @@ mod platform;
 
 pub mod descriptors;
 mod enumeration;
-pub use enumeration::{BusInfo, DeviceId, DeviceInfo, InterfaceInfo, Speed, UsbControllerType, PciControllerInfo};
+pub use enumeration::{BusInfo, DeviceId, DeviceInfo, InterfaceInfo, Speed, UsbControllerType, HostControllerInfo};
 
 mod device;
 pub use device::{Device, Interface};
