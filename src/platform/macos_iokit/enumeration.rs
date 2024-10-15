@@ -11,11 +11,14 @@ use io_kit_sys::{
     kIOMasterPortDefault, kIORegistryIterateParents, kIORegistryIterateRecursively,
     keys::kIOServicePlane, ret::kIOReturnSuccess, usb::lib::kIOUSBDeviceClassName,
     IORegistryEntryGetChildIterator, IORegistryEntryGetRegistryEntryID,
-    IORegistryEntrySearchCFProperty, IOServiceGetMatchingServices, IOServiceMatching, IOServiceNameMatching,
+    IORegistryEntrySearchCFProperty, IOServiceGetMatchingServices, IOServiceMatching,
+    IOServiceNameMatching,
 };
 use log::debug;
 
-use crate::{BusInfo, DeviceInfo, Error, InterfaceInfo, Speed, UsbControllerType, HostControllerInfo};
+use crate::{
+    BusInfo, DeviceInfo, Error, HostControllerInfo, InterfaceInfo, Speed, UsbControllerType,
+};
 
 use super::iokit::{IoService, IoServiceIterator};
 /// IOKit class name for PCI USB XHCI high-speed controllers (USB 3.0+)
@@ -93,7 +96,10 @@ pub fn get_controller(name: &str) -> Result<HostControllerInfo, Error> {
             return Err(Error::from_raw_os_error(r));
         }
 
-        IoServiceIterator::new(iterator).next().and_then(probe_controller).ok_or(Error::new(ErrorKind::NotFound, "not found"))
+        IoServiceIterator::new(iterator)
+            .next()
+            .and_then(probe_controller)
+            .ok_or(Error::new(ErrorKind::NotFound, "not found"))
     }
 }
 
@@ -166,16 +172,26 @@ pub(crate) fn probe_controller(device: IoService) -> Option<HostControllerInfo> 
 
     // name is a CFData of ASCII characters
     let name = get_ascii_array_property(&device, "name")?;
-
     let class_name = get_string_property(&device, "IOClass")?;
     let io_name = get_string_property(&device, "IOName")?;
-
-    let vendor_id = get_byte_array_property(&device, "vendor-id").map(|v| u16::from_le_bytes([v[0], v[1]]))?;
-    let device_id = get_byte_array_property(&device, "device-id").map(|v| u16::from_le_bytes([v[0], v[1]]))?;
-    let revision_id = get_byte_array_property(&device, "revision-id").map(|v| u16::from_le_bytes([v[0], v[1]]))?;
-    let class_code = get_byte_array_property(&device, "class-code").map(|v| u32::from_le_bytes([v[0], v[1], v[2], v[3]]))?;
-    let subsystem_vendor_id = get_byte_array_property(&device, "subsystem-vendor-id").map(|v| u16::from_le_bytes([v[0], v[1]]));
-    let subsystem_id = get_byte_array_property(&device, "subsystem-id").map(|v| u16::from_le_bytes([v[0], v[1]]));
+    let vendor_id = get_byte_array_property(&device, "vendor-id")
+        .filter(|v| v.len() >= 2)
+        .map(|v| u16::from_le_bytes([v[0], v[1]]))?;
+    let device_id = get_byte_array_property(&device, "device-id")
+        .filter(|v| v.len() >= 2)
+        .map(|v| u16::from_le_bytes([v[0], v[1]]))?;
+    let revision_id = get_byte_array_property(&device, "revision-id")
+        .filter(|v| v.len() >= 2)
+        .map(|v| u16::from_le_bytes([v[0], v[1]]))?;
+    let class_code = get_byte_array_property(&device, "class-code")
+        .filter(|v| v.len() >= 4)
+        .map(|v| u32::from_le_bytes([v[0], v[1], v[2], v[3]]))?;
+    let subsystem_vendor_id = get_byte_array_property(&device, "subsystem-vendor-id")
+        .filter(|v| v.len() >= 2)
+        .map(|v| u16::from_le_bytes([v[0], v[1]]));
+    let subsystem_id = get_byte_array_property(&device, "subsystem-id")
+        .filter(|v| v.len() >= 2)
+        .map(|v| u16::from_le_bytes([v[0], v[1]]));
 
     Some(HostControllerInfo {
         name,
